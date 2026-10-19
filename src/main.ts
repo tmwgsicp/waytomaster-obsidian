@@ -197,6 +197,7 @@ export default class WeChatRSSPlugin extends Plugin {
       this.tab.display();
       const result = await running;
       if (!['idle', 'page_limit', 'network', 'server', 'rate_limit'].includes(result.state)) this.schedule.stop();
+      if (result.state === 'authentication') { this.disconnect(); this.progress = result; }
       return result;
     } catch (error) {
       this.schedule.stop();
@@ -241,6 +242,8 @@ class WeChatRSSSettings extends PluginSettingTab {
       new Setting(el).addButton(button => button.setButtonText(plugin.authorizing ? '等待浏览器授权…' : '连接 WeChatRSS')
         .setCta().setDisabled(plugin.busy || plugin.authorizing || !plugin.oauth).onClick(() => plugin.authorize()));
       if (plugin.authorizing) new Setting(el).addButton(button => button.setButtonText('取消连接').onClick(() => plugin.cancelAuthorization()));
+      if (plugin.oauth?.clientId && !plugin.authorizing) new Setting(el).addButton(button => button.setButtonText('清除授权')
+        .setDisabled(plugin.busy).onClick(() => plugin.revokeConnection()));
       if (!plugin.oauth) el.createEl('p', { text: '请升级到 Obsidian 1.11.4 或更新版本以使用安全授权存储。' });
     } else {
       new Setting(el).setName(plugin.connectionLabel).addButton(button => button.setButtonText('断开连接')

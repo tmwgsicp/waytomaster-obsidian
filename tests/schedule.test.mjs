@@ -160,3 +160,21 @@ test('manual permission failure also cancels an existing automatic timer', async
   assert.equal((await f.plugin.sync()).state, 'forbidden');
   assert.equal(f.plugin.schedule.enabled, false); assert.equal(f.clock.timers.size, 0);
 });
+
+
+test('revoked OAuth returns to the connection screen and keeps existing note state', async () => {
+  const plugin = new Plugin(); await plugin.onload();
+  plugin.api = { account: 'fixture-account' };
+  plugin.subscriptions = [{ fakeid: 'publisher', nickname: 'Publisher' }];
+  plugin.settings.selections['fixture-account'] = ['publisher'];
+  const before = JSON.stringify(plugin.repository.state);
+  const revoked = result('authentication');
+  plugin.engine.run = async () => revoked;
+  assert.equal((await plugin.sync()).state, 'authentication');
+  assert.equal(plugin.api, null);
+  assert.deepEqual(plugin.subscriptions, []);
+  assert.equal(plugin.progress, revoked);
+  assert.equal(plugin.schedule.enabled, false);
+  assert.equal(JSON.stringify(plugin.repository.state), before);
+  assert.deepEqual(plugin.settings.selections['fixture-account'], ['publisher']);
+});
