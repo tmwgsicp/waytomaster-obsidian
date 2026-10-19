@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 export const digest = (value: string): string => createHash('sha256').update(value).digest('hex');
-export interface Credentials { endpoint: string; key: string; secret: string }
+export type Credentials = { endpoint: string; key: string; secret: string } | { endpoint: string; clientId: string; accessToken: () => Promise<string> };
 export interface Filter { fakeids: string[]; publishedAfter?: number; publishedBefore?: number; directory: string }
 export interface Article {
   id: number; account: { fakeid: string; nickname: string }; title: string; url: string;
@@ -42,7 +42,7 @@ export function canonicalFilter(filter: Filter): Filter {
   return { fakeids, directory: directoryOf(filter.directory),
     publishedAfter: filter.publishedAfter, publishedBefore: filter.publishedBefore };
 }
-export const accountScope = (credentials: Credentials): string => digest(endpointOf(credentials.endpoint) + '\n' + credentials.key);
+export const accountScope = (credentials: Credentials): string => digest(endpointOf(credentials.endpoint) + '\n' + ('key' in credentials ? credentials.key : 'oauth:' + credentials.clientId));
 export const filterScope = (account: string, filter: Filter): string => digest(account + '\n' + JSON.stringify(canonicalFilter(filter)));
 
 export function utcDate(value: string): number | undefined {
@@ -78,7 +78,7 @@ export class ArticleApi {
   private readonly endpoint: string;
   constructor(private readonly credentials: Credentials, private readonly request: Request, private readonly now = Date.now) {
     this.endpoint = endpointOf(credentials.endpoint);
-    if (!credentials.key.trim() || !credentials.secret.trim()) throw new SyncError('configuration', '请同时填写 API Key 和 API Secret');
+    if ('key' in credentials && (!credentials.key.trim() || !credentials.secret.trim())) throw new SyncError('configuration', '请同时填写 API Key 和 API Secret');
     this.credentialScope = accountScope(credentials);
     this.syncScope = this.credentialScope;
   }
@@ -86,7 +86,7 @@ export class ArticleApi {
     let raw: unknown;
     try { raw = await this.get('/api/v2/me'); }
     catch (error) {
-      if (error instanceof SyncError && error.code === 'not_found') return null;
+      if ('key' in this.credentials && error instanceof SyncError && error.code === 'not_found') return null;
       throw error;
     }
     const value = raw as { subject?: unknown; display_name?: unknown } | null;
@@ -101,7 +101,7 @@ export class ArticleApi {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       response = await Promise.race([this.request(this.endpoint + path,
-        { 'X-API-Key': this.credentials.key, 'X-API-Secret': this.credentials.secret }),
+        'key' in this.credentials ? { 'X-API-Key': this.credentials.key, 'X-API-Secret': this.credentials.secret } : { Authorization: 'Bearer ' + await this.credentials.accessToken() }),
       new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new SyncError('network', '请求超时，原同步位置已保留')), 20000); })]);
     } catch (error) {
       if (error instanceof SyncError) throw error;
@@ -120,7 +120,7 @@ export class ArticleApi {
     return response.json;
   }
   async subscriptions(): Promise<Subscription[]> {
-    const data = await this.get('/api/subscriptions') as { subscriptions?: unknown[] };
+    const data = await this.get('key' in this.credentials ? '/api/subscriptions' : '/api/v2/subscriptions') as { subscriptions?: unknown[] };
     if (!Array.isArray(data?.subscriptions)) throw new SyncError('response', '订阅列表格式异常');
     return data.subscriptions.map(raw => {
       const row = raw as Subscription;

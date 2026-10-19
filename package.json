@@ -1,6 +1,6 @@
 {
   "name": "wechatrss-obsidian",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,5 +12,8 @@
     "esbuild": "0.28.2",
     "obsidian": "1.14.4",
     "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "oauth4webapi": "3.8.8"
   }
 }

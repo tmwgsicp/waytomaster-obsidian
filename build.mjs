@@ -6,14 +6,15 @@ await build({ entryPoints: [test ? 'src/sync.ts' : 'src/main.ts'], bundle: true,
   platform: 'node', format: test ? 'esm' : 'cjs', target: 'es2022',
   external: ['obsidian', 'electron'], outfile: test ? '.test-build/sync.mjs' : 'dist/main.js' });
 if (test) {
+  await build({ entryPoints: ['src/oauth.ts'], bundle: true, platform: 'node', format: 'esm', target: 'es2022', outfile: '.test-build/oauth.mjs' });
   await build({ entryPoints: ['src/schedule.ts'], bundle: true, platform: 'node', format: 'esm',
     target: 'es2022', outfile: '.test-build/schedule.mjs' });
   await build({ entryPoints: ['src/main.ts'], bundle: true, platform: 'node', format: 'esm',
-    alias: { obsidian: './tests/obsidian-stub.ts' }, target: 'es2022', outfile: '.test-build/main.mjs' });
+    alias: { obsidian: './tests/obsidian-stub.ts', electron: './tests/electron-stub.ts' }, target: 'es2022', outfile: '.test-build/main.mjs' });
   await build({ entryPoints: ['src/api.ts'], bundle: true, platform: 'node', format: 'esm',
     target: 'es2022', outfile: '.test-build/api.mjs' });
   await build({ entryPoints: ['tests/vault-fixture.ts'], bundle: true, platform: 'node', format: 'esm',
-    alias: { obsidian: './tests/obsidian-stub.ts' }, target: 'es2022', outfile: '.test-build/vault.mjs' });
+    alias: { obsidian: './tests/obsidian-stub.ts', electron: './tests/electron-stub.ts' }, target: 'es2022', outfile: '.test-build/vault.mjs' });
 } else {
   await mkdir('dist', { recursive: true });
   for (const file of ['manifest.json', 'styles.css']) await copyFile(file, `dist/${file}`);

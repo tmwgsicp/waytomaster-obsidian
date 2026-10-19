@@ -1,10 +1,10 @@
 {
   "id": "wechatrss",
-  "name": "WeChatRSS",
-  "version": "0.1.1",
-  "minAppVersion": "1.5.0",
-  "description": "Sync entitled WeChatRSS articles manually or on a schedule, preserving edited notes.",
-  "author": "WeChatRSS",
-  "authorUrl": "https://wechatrss.waytomaster.com",
+  "name": "WaytoMaster",
+  "version": "0.2.0",
+  "minAppVersion": "1.11.4",
+  "description": "Save entitled content from WaytoMaster products to your vault. Currently supports WeChatRSS.",
+  "author": "WaytoMaster",
+  "authorUrl": "https://account.waytomaster.com",
   "isDesktopOnly": true
 }

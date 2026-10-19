@@ -3,6 +3,8 @@ import { ArticleApi, Filter, Subscription, SyncError, canonicalFilter, directory
 import { Progress, Repository, SyncEngine, SyncState, bindReaderIdentity, emptyState, knownAccountScope } from './sync';
 import { ObsidianVault } from './vault';
 import { SyncSchedule } from './schedule';
+import { OAuthSession, ISSUER } from './oauth';
+import { shell } from 'electron';
 
 interface Settings {
   endpoint: string; directory: string; after: string; before: string;
@@ -17,11 +19,13 @@ export default class WeChatRSSPlugin extends Plugin {
   repository!: Repository;
   engine!: SyncEngine;
   api: ArticleApi | null = null;
+  oauth?: OAuthSession;
+  authorizing = false;
   subscriptions: Subscription[] = [];
   credentials = { key: '', secret: '' };
   connectionMessage = '';
   connectionLabel = '';
-  progress: Progress = { state: 'disconnected', message: '请先连接 WeChatRSS 账号', processed: 0, pending: 0, conflicts: 0 };
+  progress: Progress = { state: 'disconnected', message: '请选择内容来源并连接账号', processed: 0, pending: 0, conflicts: 0 };
   private status!: HTMLElement;
   private tab!: WeChatRSSSettings;
   private connecting = false;
@@ -45,17 +49,34 @@ export default class WeChatRSSPlugin extends Plugin {
     this.repository = new Repository(sync, state => this.saveData({ version: 1, settings: this.settings, sync: state }));
     this.engine = new SyncEngine(this.repository, new ObsidianVault(this.app), progress => {
       this.progress = progress;
-      this.status.setText(`WeChatRSS：${progress.message}`);
+      this.status.setText(`WaytoMaster：${progress.message}`);
       this.tab?.renderProgress();
     });
     this.status = this.addStatusBarItem();
-    this.status.setText('WeChatRSS：尚未连接');
+    this.status.setText('WaytoMaster：尚未连接');
     this.tab = new WeChatRSSSettings(this.app, this);
     this.addSettingTab(this.tab);
     this.addCommand({ id: 'sync-selected', name: '手动同步所选公众号', callback: () => { void this.sync(); } });
     this.addCommand({ id: 'pause-sync', name: '暂停同步', callback: () => this.pause() });
+    if (this.app.secretStorage) {
+      this.oauth = new OAuthSession(this.app.secretStorage, async (url, options) => {
+        if (new URL(url).origin !== ISSUER) throw new SyncError('configuration', '授权服务地址无效');
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const response = await Promise.race([requestUrl({ url, method: options.method,
+            headers: Object.fromEntries(new Headers(options.headers)), body: options.body?.toString(), throw: false }),
+            new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new SyncError('network', '授权请求超时，请重新连接')), 20000); })]);
+          return new Response(response.text, { status: response.status, headers: response.headers });
+        } finally { if (timer !== undefined) clearTimeout(timer); }
+
+      });
+      this.registerObsidianProtocolHandler('waytomaster-oauth', params => { void this.finishAuthorization(params); });
+      try { if (this.oauth.restore()) await this.connect(); }
+      catch { this.progress.message = '授权无法恢复，请重新连接；已有笔记和进度保留'; }
+    }
+
   }
-  onunload() { this.generation++; this.schedule.stop(); this.engine?.pause(); this.api = null; this.credentials = { key: '', secret: '' }; }
+  onunload() { this.oauth?.cancel(); this.generation++; this.schedule.stop(); this.engine?.pause(); this.api = null; this.credentials = { key: '', secret: '' }; }
   get busy() { return this.engine?.busy || this.connecting || this.startingAuto; }
   async saveSettings() { await this.repository.update(() => {}); }
   disconnect() {
@@ -63,6 +84,35 @@ export default class WeChatRSSPlugin extends Plugin {
     this.schedule.stop(); this.engine?.pause();
     this.api = null; this.subscriptions = []; this.connectionMessage = ''; this.connectionLabel = '';
     this.progress = { state: 'disconnected', message: '请连接 WeChatRSS 账号，读取你的公众号订阅', processed: 0, pending: 0, conflicts: 0 };
+  }
+  async authorize() {
+    if (this.busy || this.authorizing || !this.oauth) return;
+    this.authorizing = true;
+    this.progress.message = '正在打开浏览器，请使用原平台账号登录并确认授权'; this.tab.display();
+    try { await shell.openExternal(await this.oauth.begin()); }
+    catch (error) {
+      this.authorizing = false;
+      this.progress.message = error instanceof SyncError ? error.message : '无法打开授权，请重试';
+      this.tab.display();
+    }
+  }
+  cancelAuthorization() {
+    this.oauth?.cancel(); this.authorizing = false;
+    this.progress.message = '已取消连接'; this.tab.display();
+  }
+  private async finishAuthorization(params: Record<string, string>) {
+    if (!this.oauth?.awaitingCallback) return;
+    try { await this.oauth.complete(params); this.authorizing = false; await this.connect(); }
+    catch {
+      this.authorizing = false;
+      this.progress.message = '授权未完成或已取消，请重新连接'; this.tab.display();
+    }
+  }
+  async revokeConnection() {
+    this.pause(); this.disconnect(); this.credentials = { key: '', secret: '' };
+    const revoked = await this.oauth?.disconnect();
+    this.progress.message = revoked ? '已断开 WeChatRSS，笔记和进度保留' : '已停止同步；可在 WaytoMaster 账号中心确认撤销授权';
+    this.tab.display();
   }
   async connect() {
     if (this.busy) return;
@@ -72,7 +122,10 @@ export default class WeChatRSSPlugin extends Plugin {
     this.progress.message = '正在验证凭据并读取订阅…'; this.tab.display();
     let account = '';
     try {
-      const api = new ArticleApi({ endpoint: this.settings.endpoint, ...this.credentials }, async (url, headers) => {
+      const auth = this.credentials.key ? { endpoint: this.settings.endpoint, ...this.credentials }
+        : { endpoint: this.settings.endpoint, clientId: this.oauth?.clientId || '', accessToken: () => this.oauth!.token() };
+      if (!this.credentials.key && !this.oauth?.clientId) throw new SyncError('authentication', '请先连接 WaytoMaster');
+      const api = new ArticleApi(auth, async (url, headers) => {
         const response = await requestUrl({ url, method: 'GET', headers, throw: false });
         return safeResponse(response);
       });
@@ -137,7 +190,7 @@ export default class WeChatRSSPlugin extends Plugin {
   }
   async sync(selected?: Filter): Promise<Progress> {
     if (this.busy) return { ...this.progress, state: 'busy' };
-    if (!this.api) { new Notice('请先在 WeChatRSS 设置中连接账号'); return { ...this.progress, state: 'disconnected' }; }
+    if (!this.api) { new Notice('请先在 WaytoMaster 设置中连接账号'); return { ...this.progress, state: 'disconnected' }; }
     try {
       const filter = selected || this.selectedFilter();
       const running = this.engine.run(this.api, filter);
@@ -173,26 +226,25 @@ class WeChatRSSSettings extends PluginSettingTab {
   display() {
     const el = this.containerEl, plugin = this.plugin;
     el.empty();
-    el.createEl('p', { text: '把可阅读的公众号文章保存到笔记库，按公众号整理，保留你的编辑。' });
+    el.createEl('h2', { text: 'WaytoMaster' });
+    el.createEl('p', { text: '把生态产品中有权阅读的内容保存到笔记库，保留你的编辑。' });
+    new Setting(el).setName('内容来源').setDesc('WeChatRSS · 公众号文章。SocialRSS、InvestorRSS 尚未开放接入。');
     const textSetting = (container: HTMLElement, name: string, description: string, value: string, change: (value: string) => void, secret = false, disabled = false) => {
       new Setting(container).setName(name).setDesc(description).addText(text => {
         text.setValue(value).setDisabled(disabled || plugin.busy || plugin.schedule.enabled).onChange(change);
         if (secret) text.inputEl.type = 'password';
       });
     };
-    el.createEl('h3', { text: '连接 WeChatRSS 账号' });
+    el.createEl('h3', { text: 'WeChatRSS' });
     if (!plugin.api) {
-      el.createEl('p', { text: '使用你在 WeChatRSS 网站上的账号，无需登录微信。打开网站「集成中心 → API」，复制下面两项。重启 Obsidian 后需要重新连接。' });
-      textSetting(el, 'API Key', '', plugin.credentials.key,
-        value => { plugin.credentials.key = value.trim(); plugin.disconnect(); }, true);
-      textSetting(el, 'API Secret', '', plugin.credentials.secret,
-        value => { plugin.credentials.secret = value.trim(); plugin.disconnect(); }, true);
-      new Setting(el).addButton(button => button.setButtonText('连接并读取订阅').setCta().setDisabled(plugin.busy).onClick(() => plugin.connect()));
+      el.createEl('p', { text: '在浏览器中使用原 WeChatRSS 账号登录，关联并授权 WaytoMaster 后返回这里。无需复制密钥。' });
+      new Setting(el).addButton(button => button.setButtonText(plugin.authorizing ? '等待浏览器授权…' : '连接 WeChatRSS')
+        .setCta().setDisabled(plugin.busy || plugin.authorizing || !plugin.oauth).onClick(() => plugin.authorize()));
+      if (plugin.authorizing) new Setting(el).addButton(button => button.setButtonText('取消连接').onClick(() => plugin.cancelAuthorization()));
+      if (!plugin.oauth) el.createEl('p', { text: '请升级到 Obsidian 1.11.4 或更新版本以使用安全授权存储。' });
     } else {
-      new Setting(el).setName(plugin.connectionLabel).addButton(button => button.setButtonText('更换账号')
-        .setDisabled(plugin.busy || plugin.schedule.enabled).onClick(() => {
-          plugin.credentials = { key: '', secret: '' }; plugin.disconnect(); this.display();
-        }));
+      new Setting(el).setName(plugin.connectionLabel).addButton(button => button.setButtonText('断开连接')
+        .setDisabled(plugin.busy || plugin.schedule.enabled).onClick(() => plugin.revokeConnection()));
     }
     if (plugin.api) {
       el.createEl('h3', { text: '选择公众号' });
