@@ -1,0 +1,26 @@
+.wechatrss-status {
+  color: var(--text-normal);
+  padding: var(--size-4-3);
+  background: var(--background-secondary);
+  border-radius: var(--radius-m);
+  overflow-wrap: anywhere;
+}
+
+.wechatrss-subscriptions {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* Keep machine-readable metadata and user-added properties; scope only our note class. */
+:is(.markdown-preview-view, .markdown-source-view).wechatrss-article .metadata-property:is(
+  [data-property-key="wechatrss_id"], [data-property-key="wechatrss_account"],
+  [data-property-key="wechatrss_namespace"], [data-property-key="title"],
+  [data-property-key="publisher_id"], [data-property-key="published_at"],
+  [data-property-key="source_updated_at"], [data-property-key="body_state"],
+  [data-property-key="publication_mode"], [data-property-key="native_publish_type"],
+  [data-property-key="publication_type_source"], [data-property-key="publication_observed_at"],
+  [data-property-key="cssclasses"]),
+.markdown-preview-view.wechatrss-article .inline-title,
+.markdown-source-view.wechatrss-article .inline-title {
+  display: none;
+}

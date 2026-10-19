@@ -1,0 +1,10 @@
+{
+  "id": "wechatrss",
+  "name": "WeChatRSS",
+  "version": "0.1.1",
+  "minAppVersion": "1.5.0",
+  "description": "Sync entitled WeChatRSS articles manually or on a schedule, preserving edited notes.",
+  "author": "WeChatRSS",
+  "authorUrl": "https://wechatrss.waytomaster.com",
+  "isDesktopOnly": true
+}
