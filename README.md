@@ -6,11 +6,11 @@
 
 ## 下载与安装（桌面测试版）
 
-无需访问 GitHub：[下载 WaytoMaster Obsidian 0.2.0 测试版](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview)。文件由官方产品服务跳转到 OSS 下载，当前通道为手动安装和升级。
+推荐使用桌面 Chrome 或 Edge 打开[网页安装助手](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview/install)。关闭 Obsidian，选择笔记库根目录，允许浏览器修改文件，再点击安装。无需访问 GitHub、解压或查找隐藏目录。
 
-1. 关闭 Obsidian，将 ZIP 解压得到的 `wechatrss` 文件夹放入目标笔记库的 `.obsidian/plugins/`。若已自定义配置目录，请使用该笔记库实际目录。
-2. 打开 Obsidian，在「设置 → 第三方插件」启用 WaytoMaster，再进入插件设置连接账号。
-3. 升级时关闭 Obsidian，仅替换 `main.js`、`manifest.json`、`styles.css`，保留 `data.json` 和已有笔记；不要删除整个插件目录。
+安装完成后，打开 Obsidian，在「设置 → 第三方插件」启用 WaytoMaster，再进入插件设置连接账号。网页只写入三个插件文件，保留笔记、账号配置和同步进度；升级前备份旧插件文件，普通写入失败会尝试恢复。浏览器授权由用户确认，安装不会自动启用第三方插件。
+
+Safari、手机或使用自定义配置目录时，可[下载 ZIP](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview) 手动安装：关闭 Obsidian，将 `wechatrss` 文件夹放到笔记库的 `.obsidian/plugins/`（或实际配置目录）。升级只替换 `main.js`、`manifest.json`、`styles.css`，保留 `data.json`。移动端插件暂不支持。
 
 当前需要桌面 Obsidian 1.11.4 或更新版本。Mac 已安装验证，Windows/Linux 实装与生产完整授权读取仍待验收；iOS/Android 暂不支持。此测试包不代表正式稳定版，也没有自动下载安装更新功能。
 
@@ -48,8 +48,9 @@
 npm ci
 npm test
 npm run build
+npm run build:installer
 ```
 
-产物位于 `dist/`，仅分发三个插件文件，测试数据、依赖目录与 `data.json` 不进入安装包。OAuth 协议处理复用 `oauth4webapi`。
+产物位于 `dist/`；`WaytoMaster-Obsidian-Install.html` 内嵌与当前构建相同的三个插件文件及校验值。ZIP 仅分发三个插件文件，测试数据、依赖目录与 `data.json` 不进入安装包。OAuth 协议处理复用 `oauth4webapi`。
 
 已验证授权取消与错 state、续期并发、撤销、账号隔离、断点恢复和编辑保护。Mac Obsidian 1.14.4 在专用笔记库内通过真实系统回跳、SecretStorage 恢复、重复同步、授权失效后的重连/清除和断开验证，云端响应采用隔离数据。隔离验证后曾恢复 0.1.1；配套上线后，Mac 专用笔记库已升级 0.2.0，73 篇原有笔记哈希不变，自动同步关闭。公网登录入口已验证，等待本人登录完成生产 OAuth 联调；Windows 实装及完整发布验收尚未完成。
