@@ -25,7 +25,7 @@ Safari 或自定义配置目录可下载 ZIP：关闭 Obsidian，将 `wechatrss`
 
 升级时再次运行安装助手，或只替换 `main.js`、`manifest.json`、`styles.css`，保留 `data.json` 和笔记。换电脑需要重新授权。目前不支持自动安装更新或跨设备状态合并。
 
-目前推荐在 macOS 使用；Windows/Linux 尚未完成验证，手机端暂不支持。尚未上架 Obsidian 社区插件目录，请使用上方安装入口。
+Windows/macOS 桌面基础流程已验证；Linux 尚未完成验证，手机端暂不支持。尚未上架 Obsidian 社区插件目录，请使用上方安装入口。
 
 </details>
 
@@ -35,6 +35,8 @@ Safari 或自定义配置目录可下载 ZIP：关闭 Obsidian，将 `wechatrss`
 自动同步每小时检查，需要保持 Obsidian 打开，重启后重新开启。文章按公众号保存，图片需要联网查看。
 
 沿用原账号的套餐、余额、订阅和阅读权益。没有文章时，先确认同一账号能在 WeChatRSS 阅读正文；连接失效可重新连接。插件不会自动获取全部历史文章。
+
+授权时先确认 WeChatRSS 账号，再进入账号中心确认只读权限。没有统一账号时会自动开通，不必重复注册。账号中心未登录时需要登录：新开通的账号可使用原平台密码；已有统一账号则使用它原有的密码。
 
 可在插件设置中断开连接，或在 [WaytoMaster 账号中心](https://account.waytomaster.com/me/apps) 管理授权。笔记和同步进度保存在本地，备份时保留插件数据。
 
