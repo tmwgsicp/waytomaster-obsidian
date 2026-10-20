@@ -25,7 +25,7 @@ async function optionalDirectory(folder, name) {
 }
 export async function inspectVault(vault) {
   const config = await optionalDirectory(vault, '.obsidian');
-  if (!config) throw Error('这里还没有 Obsidian 笔记库配置。请先在 Obsidian 中创建或打开这个笔记库，再重新选择。');
+  if (!config) throw Error('没有找到 Obsidian 笔记库。请选存放笔记的最外层文件夹；如果是新文件夹，先在 Obsidian 中创建或打开它，再返回重试。');
   const plugins = await optionalDirectory(config, 'plugins');
   const target = plugins ? await optionalDirectory(plugins, 'wechatrss') : null;
   const raw = target ? await optionalFile(target, 'manifest.json') : null;

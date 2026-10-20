@@ -6,7 +6,9 @@
 
 ## 下载与安装（桌面测试版）
 
-推荐使用桌面 Chrome 或 Edge 打开[网页安装助手](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview/install)。关闭 Obsidian，选择笔记库根目录，允许浏览器修改文件，再点击安装。无需访问 GitHub、解压或查找隐藏目录。
+首次使用请先查看[功能与使用指南](https://wechatrss.waytomaster.com/obsidian)，也可以在 WeChatRSS「AI / 集成 → Obsidian · 笔记同步」找到同一份说明。
+
+推荐使用桌面 Chrome 或 Edge 打开[网页安装助手](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview/install)。笔记库就是存放 Obsidian 笔记的文件夹。已有笔记库可在 Obsidian 左下角的「管理笔记库」查看路径；新用户先在 Obsidian 创建，例如「文稿 / 我的资料库」。关闭 Obsidian，选择这个文件夹本身，允许浏览器修改文件，再点击安装。无需访问 GitHub、解压或查找隐藏目录。
 
 安装完成后，打开 Obsidian，在「设置 → 第三方插件」启用 WaytoMaster，再进入插件设置连接账号。网页只写入三个插件文件，保留笔记、账号配置和同步进度；升级前备份旧插件文件，普通写入失败会尝试恢复。浏览器授权由用户确认，安装不会自动启用第三方插件。
 

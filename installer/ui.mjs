@@ -21,7 +21,8 @@ $('choose').onclick = async () => {
     $('install').disabled = false;
   } catch (cause) {
     $('selected').hidden = true;
-    if (cause.name !== 'AbortError') error(cause.message || '无法访问所选文件夹，请重新选择。');
+    if (cause.name === 'AbortError') $('status').textContent = '已取消选择，未修改任何文件。可以重新选择。';
+    else error(cause.name === 'NotAllowedError' ? '未获得文件夹访问权限。请重新选择，并在浏览器提示中允许修改文件。' : cause.message || '无法访问所选文件夹，请重新选择。');
   }
 };
 $('install').onclick = async () => {

@@ -83,7 +83,7 @@ test('wrong directory and newer plugin are not overwritten', async t => {
   const f = await fixture(t, '0.3.0');
   await assert.rejects(install(f.vault, f.bundle), /更新版本/);
   assert.equal(await readFile(join(f.target, 'main.js'), 'utf8'), 'old-main');
-  await assert.rejects(inspectVault(new Directory(f.target)), /配置/);
+  await assert.rejects(inspectVault(new Directory(f.target)), /笔记库/);
 });
 test('extra payload file and another plugin identity are rejected', async t => {
   const f = await fixture(t, '0.1.1');
