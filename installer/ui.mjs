@@ -25,33 +25,51 @@ function step(name) {
 }
 let vault = null, busy = false;
 function error(message) { $('error').textContent = message; $('error').hidden = !message; }
-if (!('showDirectoryPicker' in window) || !window.isSecureContext) {
-  $('unsupported').hidden = false; $('choose').disabled = true;
-}
-$('choose').onclick = async () => {
+const supported = 'showDirectoryPicker' in window && window.isSecureContext;
+const canDrop = supported && 'DataTransferItem' in window && 'getAsFileSystemHandle' in DataTransferItem.prototype;
+$('drop-hint').hidden = !canDrop;
+if (!supported) { $('unsupported').hidden = false; $('choose').disabled = true; }
+const isMac = /Mac/i.test(navigator.userAgentData?.platform || navigator.platform);
+$('path-hint').textContent = isMac
+  ? 'Mac：点击下方按钮后，可按 ⌘ + Shift + G，输入上面查到的文件夹路径，直接前往。'
+  : 'Windows：点击下方按钮后，可在地址栏粘贴查到的文件夹路径，按回车前往。';
+async function selectVault(getHandle) {
   if (busy) return;
+  busy = true; $('choose').disabled = true;
   step('select');
-  error(''); $('status').textContent = ''; $('status').className = ''; $('install').disabled = true; $('install').hidden = true; $('done').hidden = true; vault = null;
+  error(''); $('status').textContent = ''; $('status').className = ''; $('install').disabled = true; $('install').hidden = true; $('done').hidden = true; $('selected').hidden = true; $('close-reminder').hidden = true; vault = null;
   try {
-    const chosen = await window.showDirectoryPicker({id: 'waytomaster-vault', mode: 'readwrite'});
+    const chosen = await getHandle();
+    if (!chosen || chosen.kind !== 'directory') throw Error('请选择整个笔记文件夹，不是笔记文件或 ZIP。');
     const found = await inspectVault(chosen);
     await verifyBundle(bundle);
     vault = chosen;
     $('selected').textContent = chosen.name + (found.existing ? ' · 已安装 ' + found.existing.version : ' · 尚未安装 WaytoMaster');
-    $('selected').hidden = false; $('status').textContent = '';
+    $('selected').hidden = false; $('close-reminder').hidden = false; $('status').textContent = '';
     $('install').textContent = found.existing ? '安装 / 更新至 ' + bundle.version : '安装 WaytoMaster';
-    $('install').disabled = false; $('install').hidden = false; $('choose').textContent = '重新选择'; $('choose').className = 'secondary'; step('install');
+    $('install').disabled = false; $('install').hidden = false; $('choose').textContent = '换一个文件夹'; $('choose').className = 'secondary'; step('install');
   } catch (cause) {
-    $('selected').hidden = true;
     if (cause.name === 'AbortError') $('status').textContent = '已取消选择，未修改任何文件。可以重新选择。';
-    else error(cause.name === 'NotAllowedError' ? '未获得文件夹访问权限。请重新选择，并在浏览器提示中允许修改文件。' : cause.message || '无法访问所选文件夹，请重新选择。');
-  }
+    else error(cause.name === 'NotAllowedError' ? '未获得文件夹访问权限。请重新选择，并在浏览器提示中允许访问文件夹。' : cause.message || '无法访问所选文件夹，请重新选择。');
+  } finally { busy = false; $('choose').disabled = !supported; }
+}
+$('choose').onclick = () => selectVault(() => window.showDirectoryPicker({id: 'waytomaster-vault', mode: 'read'}));
+// Obtain the handle during the drop event; the browser clears drag data after it returns.
+$('drop-zone').ondragover = event => { event.preventDefault(); if (canDrop && !busy) $('drop-zone').classList.add('drag-over'); };
+$('drop-zone').ondragleave = () => $('drop-zone').classList.remove('drag-over');
+$('drop-zone').ondrop = event => {
+  event.preventDefault(); $('drop-zone').classList.remove('drag-over');
+  if (!canDrop || busy) return;
+  const items = [...event.dataTransfer.items].filter(item => item.kind === 'file');
+  if (items.length !== 1) { selectVault(() => { throw Error('请一次只拖入一个笔记文件夹。'); }); return; }
+  selectVault(() => items[0].getAsFileSystemHandle());
 };
 $('install').onclick = async () => {
   if (busy || !vault) return;
   busy = true; $('choose').disabled = true; $('install').disabled = true; error('');
   $('status').textContent = '正在校验并安装…';
   try {
+    if (await vault.requestPermission({mode: 'readwrite'}) !== 'granted') throw Error('未获得写入权限，尚未安装。点击安装重试，并允许修改文件夹。');
     const result = await install(vault, bundle);
     $('status').textContent = result.action === 'unchanged' ? '已经安装此版本，可以回到 Obsidian 启用。' : '安装完成，已有笔记和配置保持不变。';
     $('selected').textContent = vault.name + ' · 已安装 ' + result.version;
