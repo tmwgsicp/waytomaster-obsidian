@@ -31,7 +31,7 @@ if (!('showDirectoryPicker' in window) || !window.isSecureContext) {
 $('choose').onclick = async () => {
   if (busy) return;
   step('select');
-  error(''); $('status').textContent = ''; $('status').className = ''; $('install').disabled = true; $('done').hidden = true; vault = null;
+  error(''); $('status').textContent = ''; $('status').className = ''; $('install').disabled = true; $('install').hidden = true; $('done').hidden = true; vault = null;
   try {
     const chosen = await window.showDirectoryPicker({id: 'waytomaster-vault', mode: 'readwrite'});
     const found = await inspectVault(chosen);
@@ -40,7 +40,7 @@ $('choose').onclick = async () => {
     $('selected').textContent = chosen.name + (found.existing ? ' · 已安装 ' + found.existing.version : ' · 尚未安装 WaytoMaster');
     $('selected').hidden = false; $('status').textContent = '';
     $('install').textContent = found.existing ? '安装 / 更新至 ' + bundle.version : '安装 WaytoMaster';
-    $('install').disabled = false; step('install');
+    $('install').disabled = false; $('install').hidden = false; $('choose').textContent = '重新选择'; $('choose').className = 'secondary'; step('install');
   } catch (cause) {
     $('selected').hidden = true;
     if (cause.name === 'AbortError') $('status').textContent = '已取消选择，未修改任何文件。可以重新选择。';
@@ -56,7 +56,7 @@ $('install').onclick = async () => {
     $('status').textContent = result.action === 'unchanged' ? '已经安装此版本，可以回到 Obsidian 启用。' : '安装完成，已有笔记和配置保持不变。';
     $('selected').textContent = vault.name + ' · 已安装 ' + result.version;
     $('install').textContent = '已安装';
-    $('status').className = 'success'; $('done').hidden = false; step('connect');
+    $('status').className = 'success'; $('setup').hidden = true; $('done').hidden = false; step('connect'); $('done').focus();
     $('open').href = 'obsidian://open?' + new URLSearchParams({vault: vault.name});
   } catch (cause) { $('status').textContent = ''; error(cause.message || '安装未完成，请重新选择笔记库后重试。'); $('install').disabled = false; }
   finally { busy = false; $('choose').disabled = false; }
