@@ -96,7 +96,7 @@ test('legacy ID filename stays at its recorded path and a user-occupied title fi
   await f.engine.run(api([article(1)]), filter);
   assert.equal(f.repository.state.files[`${namespace}:1`].path, legacyPath);
   assert.ok((await f.read(legacyPath)).includes('正文'));
-  const occupiedFolder = 'Imported/account-a/' + publisherFolder(article(2).account);
+  const occupiedFolder = 'Imported/' + publisherFolder(article(2).account);
   await f.app.vault.createFolder(occupiedFolder);
   const occupied = occupiedFolder + '/' + articleFilename(article(2));
   await f.app.vault.create(occupied, 'User-owned text');

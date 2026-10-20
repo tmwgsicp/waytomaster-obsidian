@@ -7,6 +7,7 @@ export interface Feed { cursor: string | null; pending: Record<string, Pending>;
 export interface SyncState {
   version: 1; feeds: Record<string, Feed>; files: Record<string, FileRecord>; cooldowns: Record<string, number>;
   publisherFolders?: Record<string, string>;
+  publisherPaths?: Record<string, { path: string; from?: string }>;
   identities?: { accounts: Record<string, string>; credentials: Record<string, string> };
 }
 export const emptyState = (): SyncState => ({ version: 1, feeds: {}, files: {}, cooldowns: {} });
@@ -68,13 +69,25 @@ export async function bindReaderIdentity(repository: Repository, credential: str
   return account;
 }
 export interface VaultPort {
+  exists(path: string): boolean;
+  moveFolder(from: string, to: string, namespace: string): Promise<void>;
   upsert(path: string, identity: string, content: string, previous?: FileRecord): Promise<{
     kind: 'created' | 'updated' | 'unchanged' | 'conflict'; path: string; hash: string;
   }>;
 }
 export interface SyncApi { account: string; page(filter: Filter, cursor: string | null): Promise<{
   items: Article[]; next_cursor: string; has_more: boolean }>; article(id: number): Promise<Article> }
-export interface Progress { state: string; message: string; processed: number; pending: number; conflicts: number; retryAt?: number }
+export interface Progress { state: string; message: string; processed: number; pending: number; conflicts: number; unavailable?: number; blocked?: number; retryAt?: number }
+
+export function progressText(progress: Progress, detailed = false): string {
+  const parts = [progress.message];
+  if (progress.pending) parts.push(`${progress.pending} 篇正文待补` + (detailed ? '，下次同步会重试' : ''));
+  if (progress.unavailable) parts.push(`${progress.unavailable} 篇正文暂不可用` + (detailed ? '，后续同步会重试' : ''));
+  if (progress.blocked) parts.push(`${progress.blocked} 篇暂时无法读取` + (detailed ? '，请在 WeChatRSS 检查文章是否仍可阅读' : ''));
+  if (progress.conflicts) parts.push(`已保留 ${progress.conflicts} 篇本地修改` + (detailed ? '，未覆盖笔记；查看最新正文可打开笔记的原文链接' : ''));
+  if (detailed && progress.retryAt) parts.push(`可重试时间 ${new Date(progress.retryAt).toLocaleString()}`);
+  return parts.join(' · ');
+}
 
 function pathLabel(value: string, maxBytes: number): string {
   const clean = value.normalize('NFC').replace(/[\\/:*?"<>|#\[\]^\u0000-\u001f]/g, ' ')
@@ -87,13 +100,18 @@ function pathLabel(value: string, maxBytes: number): string {
   return title.replace(/[. ]+$/g, '');
 }
 
+function validDirectory(value: unknown): value is string {
+  try { return typeof value === 'string' && directoryOf(value) === value; } catch { return false; }
+}
+
 export function articleFilename(article: Pick<Article, 'id' | 'title'>): string {
   return `${pathLabel(article.title, 120) || '未命名文章'} · ${article.id}.md`;
 }
 
 export function publisherFolder(account: Article['account']): string {
   const name = typeof account.nickname === 'string' ? account.nickname : '';
-  return `${pathLabel(name, 72) || '未命名公众号'} · ${digest(account.fakeid).slice(0, 12)}`;
+  const label = pathLabel(name, 72) || '未命名公众号';
+  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(label) ? `${label}（公众号）` : label;
 }
 
 export function markdown(article: Article, account: string, namespace: string): string {
@@ -128,14 +146,54 @@ export class SyncEngine {
     private readonly now = Date.now) {}
   pause(): void { this.paused = true; }
 
+  private async publisherPath(directory: string, account: string, namespace: string, fakeid: string, nickname: string): Promise<string> {
+    const key = `${namespace}:${fakeid}`;
+    let record = this.repository.state.publisherPaths?.[key];
+    const legacy = this.repository.state.publisherFolders?.[key];
+    if (legacy !== undefined && (!validDirectory(legacy) || legacy.includes('/')))
+      throw new SyncError('storage', '公众号目录记录无效，已保留已有笔记和断点');
+    if (!record) {
+      const label = publisherFolder({ fakeid, nickname: legacy?.replace(/ · [a-f0-9]{12}$/, '') || nickname });
+      const occupied = new Set(Object.values(this.repository.state.publisherPaths || {}).map(item => item.path.normalize('NFC').toLowerCase()));
+      let path = `${directory}/${label}`, suffix = 2;
+      while (occupied.has(path.normalize('NFC').toLowerCase()) || this.vault.exists(path)) path = `${directory}/${label}（${suffix++}）`;
+      record = { path, ...(legacy ? { from: `${directory}/${account.slice(0, 24)}/${legacy}` } : {}) };
+      const reserved = record;
+      // Reserve the destination before moving; an interrupted move resumes without allocating a second folder.
+      await this.repository.update(state => {
+        (state.publisherPaths ||= {})[key] = reserved;
+        (state.publisherFolders ||= {})[key] = legacy || label;
+      });
+    }
+    const validChild = (path: string) => validDirectory(path)
+      && path.startsWith(directory + '/') && !path.slice(directory.length + 1).includes('/');
+    if (!validChild(record.path)) throw new SyncError('storage', '公众号保存位置无效，已停止整理');
+    if (record.from) {
+      const from = `${directory}/${account.slice(0, 24)}/${legacy}`;
+      if (!legacy || record.from !== from) throw new SyncError('storage', '旧目录记录不一致，已停止整理');
+      if (Object.entries(this.repository.state.files).some(([id, file]) => file.path.startsWith(from + '/') && !id.startsWith(namespace + ':')))
+        throw new SyncError('storage', '旧目录包含其他账号的记录，已停止整理');
+      await this.vault.moveFolder(from, record.path, namespace);
+      const target = record.path;
+      await this.repository.update(state => {
+        for (const [id, file] of Object.entries(state.files)) {
+          if (id.startsWith(namespace + ':') && file.path.startsWith(from + '/')) file.path = target + file.path.slice(from.length);
+        }
+        state.publisherPaths![key] = { path: target };
+      });
+    }
+    return record.path;
+  }
+
   async run(api: SyncApi, rawFilter: Filter): Promise<Progress> {
     if (this.busy) throw new SyncError('busy', '已有同步正在运行');
     const filter = canonicalFilter(rawFilter), scope = filterScope(api.account, filter);
     const namespace = digest(api.account + '\n' + filter.directory);
-    let processed = 0;
+    let processed = 0, created = 0, updated = 0;
     const report = (state: string, message: string, retryAt?: number) => {
       const pending = Object.values(this.repository.state.feeds[scope]?.pending || {});
-      const value = { state, message, processed, pending: pending.filter(p => p !== 'conflict').length,
+      const value = { state, message, processed, pending: pending.filter(p => p === 'pending').length,
+        unavailable: pending.filter(p => p === 'unavailable').length, blocked: pending.filter(p => p === 'blocked').length,
         conflicts: pending.filter(p => p === 'conflict').length, retryAt };
       this.progress(value);
       return value;
@@ -149,20 +207,9 @@ export class SyncEngine {
         throw new SyncError('response', '返回文章与所选范围不符，已停止写入');
       const identity = `${namespace}:${article.id}`;
       const fileKey = `${namespace}:${article.id}`;
-      const publisherKey = `${namespace}:${article.account.fakeid}`;
-      let folder = this.repository.state.publisherFolders?.[publisherKey];
-      if (folder === undefined) {
-        folder = publisherFolder(article.account);
-        // Persist the first name before any note write so retry/restart cannot split a renamed publisher.
-        await this.repository.update(state => { (state.publisherFolders ||= {})[publisherKey] = folder!; });
-      }
-      try {
-        if (typeof folder !== 'string' || directoryOf(folder) !== folder || folder.includes('/')) throw new Error('invalid_folder');
-      } catch {
-        throw new SyncError('storage', '公众号目录记录无效，已保留已有笔记和断点');
-      }
+      const folder = await this.publisherPath(filter.directory, api.account, namespace, article.account.fakeid, article.account.nickname);
       stopped();
-      const target = `${filter.directory}/${api.account.slice(0, 24)}/${folder}/${articleFilename(article)}`;
+      const target = `${folder}/${articleFilename(article)}`;
       const previous = this.repository.state.files[fileKey];
       const result = await this.vault.upsert(target, identity, markdown(article, api.account, namespace), previous);
       await this.repository.update(state => {
@@ -175,6 +222,8 @@ export class SyncEngine {
         }
       });
       processed++;
+      if (result.kind === 'created') created++;
+      if (result.kind === 'updated') updated++;
       report('running', '正在同步所选文章');
     };
 
@@ -184,9 +233,19 @@ export class SyncEngine {
       const folders = this.repository.state.publisherFolders;
       if (folders !== undefined && (!folders || typeof folders !== 'object' || Array.isArray(folders)))
         throw new SyncError('storage', '公众号目录记录损坏，未重置已有数据');
+      const paths = this.repository.state.publisherPaths;
+      if (paths !== undefined && (!paths || typeof paths !== 'object' || Array.isArray(paths)
+        || Object.values(paths).some(item => !item || !validDirectory(item.path))
+        || new Set(Object.values(paths).map(item => item.path.normalize('NFC').toLowerCase())).size !== Object.keys(paths).length))
+        throw new SyncError('storage', '公众号保存位置记录损坏，未修改已有数据');
       const until = this.repository.state.cooldowns[api.account] || 0;
       if (until > this.now()) return report('rate_limit', '仍在读取限频等待期，需等待至提示时间后再继续', until);
       await this.repository.update(state => { state.feeds[scope] ||= { cursor: null, pending: {}, pendingCursor: 0 }; });
+      for (const key of Object.keys(folders || {})) {
+        if (!key.startsWith(namespace + ':')) continue;
+        stopped();
+        await this.publisherPath(filter.directory, api.account, namespace, key.slice(namespace.length + 1), '');
+      }
       report('running', '正在检查待补正文与新增文章');
       const feed = this.repository.state.feeds[scope];
       const pendingIds = Object.keys(feed.pending).map(Number).sort((a, b) => a - b);
@@ -213,7 +272,9 @@ export class SyncEngine {
         stopped();
         // Cursor advances only after every write or pending/conflict receipt is durable.
         await this.repository.update(state => { state.feeds[scope].cursor = page.next_cursor; });
-        if (!page.has_more) return report('idle', '本轮检查结束；待补正文和编辑冲突会单独保留');
+        if (!page.has_more) return report('idle', created || updated
+          ? `同步完成：${[created ? `新增 ${created} 篇` : '', updated ? `更新 ${updated} 篇` : ''].filter(Boolean).join('，')}`
+          : '已检查，没有新增或更新');
       }
       return report('page_limit', '本轮已读取 20 页；下一轮同步会从断点继续');
     } catch (error) {

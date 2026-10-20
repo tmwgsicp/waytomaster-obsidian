@@ -1,6 +1,6 @@
 import { App, Notice, Plugin, PluginSettingTab, Setting, requestUrl } from 'obsidian';
 import { ArticleApi, Filter, Subscription, SyncError, canonicalFilter, directoryOf, safeResponse, utcDate } from './api';
-import { Progress, Repository, SyncEngine, SyncState, bindReaderIdentity, emptyState, knownAccountScope } from './sync';
+import { Progress, Repository, SyncEngine, SyncState, bindReaderIdentity, emptyState, knownAccountScope, progressText } from './sync';
 import { ObsidianVault } from './vault';
 import { SyncSchedule } from './schedule';
 import { OAuthSession, ISSUER } from './oauth';
@@ -49,7 +49,7 @@ export default class WeChatRSSPlugin extends Plugin {
     this.repository = new Repository(sync, state => this.saveData({ version: 1, settings: this.settings, sync: state }));
     this.engine = new SyncEngine(this.repository, new ObsidianVault(this.app), progress => {
       this.progress = progress;
-      this.status.setText(`WaytoMaster：${progress.message}`);
+      this.status.setText(`WaytoMaster：${progressText(progress)}`);
       this.tab?.renderProgress();
     });
     this.status = this.addStatusBarItem();
@@ -217,9 +217,7 @@ class WeChatRSSSettings extends PluginSettingTab {
   renderProgress() {
     if (!this.status) return;
     const p = this.plugin.progress;
-    this.status.setText(p.message + (p.processed ? ` · 本轮处理 ${p.processed} 篇` : '') +
-      (p.pending ? ` · 待补正文 ${p.pending} 篇` : '') + (p.conflicts ? ` · 保留编辑 ${p.conflicts} 篇` : '') +
-      (p.retryAt ? ` · 可重试时间 ${new Date(p.retryAt).toLocaleString()}` : ''));
+    this.status.setText(progressText(p, true));
     this.automatic?.setText(this.plugin.schedule.enabled
       ? this.plugin.schedule.nextAt ? `自动同步已开启 · 下次检查 ${new Date(this.plugin.schedule.nextAt).toLocaleString()}` : '自动同步已开启 · 本轮正在检查'
       : `自动同步未开启 · 开启后每 ${this.plugin.settings.intervalMinutes} 分钟检查一次`);
@@ -278,7 +276,7 @@ class WeChatRSSSettings extends PluginSettingTab {
       };
       renderList();
       el.createEl('h3', { text: '同步文章' });
-      textSetting(el, '保存到文件夹', '默认保存到 WeChatRSS，按公众号整理。更改位置后，已有笔记仍保留在原处。', plugin.settings.directory,
+      textSetting(el, '保存到文件夹', '按“保存位置 / 公众号名称 / 文章”整理，重名时加序号。更改位置后，已有笔记仍保留在原处。', plugin.settings.directory,
         value => { plugin.settings.directory = value; });
       if (plugin.settings.after || plugin.settings.before) {
         new Setting(el).setName('之前设置了日期范围')

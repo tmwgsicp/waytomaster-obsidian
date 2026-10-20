@@ -15,7 +15,7 @@ function setup(initial = emptyState()) {
     durable = structuredClone(next);
   });
   const files = new Map(), writes = [];
-  const vault = { async upsert(path, identity, content, previous) {
+  const vault = { exists: path => [...files.keys()].some(file => file === path || file.startsWith(path + '/')), async moveFolder() { throw Error('unexpected legacy move'); }, async upsert(path, identity, content, previous) {
     const current = files.get(previous?.path || path);
     if (current !== undefined && current !== content && (!previous || digest(current) !== previous.hash))
       return { kind:'conflict', path, hash:digest(current) };
@@ -60,7 +60,7 @@ test('persistence failure after file write cannot advance checkpoint; restart re
   assert.equal((await s.engine.run(apiOf([article(1)]),filter)).state,'storage');
   assert.equal(s.durable().feeds[filterScope('account-a',filter)].cursor,null);
   const repository = new Repository(s.durable(), async () => {});
-  const restarted = new SyncEngine(repository,{upsert:original},()=>{});
+  const restarted = new SyncEngine(repository,{...s.vault,upsert:original},()=>{});
   await restarted.run(apiOf([article(1)]),filter);
   assert.equal(s.writes.length,1); assert.equal(repository.state.feeds[filterScope('account-a',filter)].cursor,'c1');
 });

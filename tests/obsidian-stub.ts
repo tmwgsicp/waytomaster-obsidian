@@ -1,5 +1,6 @@
 export class TFile { constructor(public path: string) {} }
-export class TFolder { constructor(public path: string) {} }
+export class TFolder { children: (TFile | TFolder)[] = []; constructor(public path: string) {} }
+export class FileSystemAdapter {}
 export const normalizePath = (path: string) => path.replaceAll('\\', '/');
 
 class Element {

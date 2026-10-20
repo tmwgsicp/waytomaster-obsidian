@@ -86,7 +86,7 @@ test('cancelled old round cannot rearm or stop a newly enabled schedule', async 
 test('scheduled rounds use real cursor recovery, later body fill and edit protection', async () => {
   const clock = fakeClock(), schedule = new SyncSchedule(() => {}, clock), files = new Map();
   const repository = new Repository(emptyState(), async () => {});
-  const engine = new SyncEngine(repository, { async upsert(path, identity, content, previous) {
+  const engine = new SyncEngine(repository, { exists: path => [...files.keys()].some(file => file.startsWith(path + '/')), async moveFolder() { throw Error('unexpected move'); }, async upsert(path, identity, content, previous) {
     const current = files.get(path);
     if (previous && digest(current) !== previous.hash) return { kind: 'conflict', path, hash: digest(current) };
     files.set(path, content); return { kind: current ? 'updated' : 'created', path, hash: digest(content) };

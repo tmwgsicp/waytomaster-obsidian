@@ -1,10 +1,58 @@
-import { App, TFile, TFolder, normalizePath } from 'obsidian';
+import { App, FileSystemAdapter, TFile, TFolder, normalizePath } from 'obsidian';
+import { lstat, realpath, rmdir } from 'node:fs/promises';
+import { isAbsolute, relative } from 'node:path';
 import { FileRecord, VaultPort } from './sync';
 import { digest } from './api';
 
 export class ObsidianVault implements VaultPort {
   private identities: Map<string, TFile[]> | null = null;
   constructor(private readonly app: App) {}
+  exists(path: string): boolean {
+    const key = normalizePath(path).normalize('NFC').toLowerCase();
+    return this.app.vault.getAllLoadedFiles().some(file => file.path.normalize('NFC').toLowerCase() === key);
+  }
+  async moveFolder(from: string, to: string, namespace: string): Promise<void> {
+    const source = this.app.vault.getAbstractFileByPath(from);
+    const destination = this.app.vault.getAbstractFileByPath(to);
+    const owned = (folder: string) => {
+      let matches = 0;
+      for (const file of this.app.vault.getMarkdownFiles()) {
+        if (!file.path.startsWith(folder + '/')) continue;
+        const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+        if (fm?.wechatrss_namespace && fm.wechatrss_namespace !== namespace) throw new Error('folder_contains_other_account');
+        if (fm?.wechatrss_namespace === namespace) matches++;
+      }
+      return matches;
+    };
+    if (source) {
+      if (!(source instanceof TFolder) || destination || this.exists(to)) throw new Error('folder_move_target_occupied');
+      const matches = owned(from);
+      if (!matches && this.app.vault.getMarkdownFiles().some(file => file.path.startsWith(from + '/')))
+        throw new Error('folder_ownership_not_ready');
+      // Obsidian updates references when its file manager renames a folder.
+      await this.app.fileManager.renameFile(source, to);
+    } else if (destination && (!(destination instanceof TFolder) || !owned(to))) {
+      throw new Error('folder_move_recovery_ambiguous');
+    }
+    const parent = this.app.vault.getAbstractFileByPath(from.slice(0, from.lastIndexOf('/')));
+    if (parent instanceof TFolder && parent.children.length === 0) {
+      try {
+        const adapter = this.app.vault.adapter;
+        if (adapter instanceof FileSystemAdapter) {
+          const full = adapter.getFullPath(parent.path);
+          const inside = relative(await realpath(adapter.getFullPath('')), await realpath(full));
+          if (!inside || inside.startsWith('..') || isAbsolute(inside) || (await lstat(full)).isSymbolicLink())
+            throw new Error('unsafe_empty_folder');
+          // Obsidian 1.14's nonrecursive rmdir delegates to fs.rm and fails on directories. fs.rmdir only removes an empty directory.
+          await rmdir(full);
+        } else await adapter.rmdir(parent.path, false);
+      } catch (error) {
+        // Hidden files and concurrent user additions stay in the old folder; cleanup never removes them.
+        if (!['ENOTEMPTY', 'EEXIST', 'ENOENT'].includes((error as NodeJS.ErrnoException).code || '')) throw error;
+      }
+    }
+    this.identities = null;
+  }
   private find(path: string, identity: string, previous?: FileRecord): TFile | null {
     const known = this.app.vault.getAbstractFileByPath(normalizePath(previous?.path || path));
     if (known instanceof TFile) return known;
