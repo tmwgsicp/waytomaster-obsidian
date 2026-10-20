@@ -6,7 +6,7 @@
 - 手动或每小时自动同步，重复同步不重复创建。
 - 保留你修改过的笔记，断开连接也不会删除内容。
 
-[安装插件](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview/install) · [下载 ZIP](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview) · [使用帮助](https://wechatrss.waytomaster.com/obsidian)
+[安装插件](https://wechatrss.waytomaster.com/dashboard/integrations?tab=obsidian&install=1) · [下载 ZIP](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview) · [使用帮助](https://wechatrss.waytomaster.com/dashboard/integrations?tab=obsidian)
 
 ## 开始使用
 

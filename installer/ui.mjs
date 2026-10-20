@@ -61,3 +61,12 @@ $('install').onclick = async () => {
   } catch (cause) { $('status').textContent = ''; error(cause.message || '安装未完成，请重新选择笔记库后重试。'); $('install').disabled = false; }
   finally { busy = false; $('choose').disabled = false; }
 };
+
+if (window.parent !== window) {
+  new ResizeObserver(() => window.parent.postMessage({ type: 'waytomaster-installer-size', height: Math.ceil(document.body.getBoundingClientRect().height) }, location.origin)).observe(document.body);
+  window.addEventListener('message', event => {
+    if (event.source !== window.parent || event.origin !== location.origin || event.data?.type !== 'waytomaster-theme') return;
+    if (!['light', 'dark', 'system'].includes(event.data.preference)) return;
+    $('theme').value = event.data.preference; applyTheme();
+  });
+}
