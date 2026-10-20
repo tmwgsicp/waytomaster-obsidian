@@ -2,7 +2,7 @@
 
 将 WaytoMaster 生态产品中有权阅读的内容保存到 Obsidian。当前 0.2.0 候选版支持 WeChatRSS；SocialRSS 和 InvestorRSS 尚未接入。
 
-本项目的独立仓库为 [tmwgsicp/waytomaster-obsidian](https://github.com/tmwgsicp/waytomaster-obsidian)，仅通过产品公开 API 读取内容，不包含产品服务端、采集组件或服务端凭据。尚未公开发布或提交社区目录，开源许可证将在正式发布前确定。0.2.0 所需的账号服务、WeChatRSS 读取接口和授权页已上线，正在 Mac 专用笔记库内进行真实账号验收；尚未完成正式发布验收。
+本项目的独立仓库为 [tmwgsicp/waytomaster-obsidian](https://github.com/tmwgsicp/waytomaster-obsidian)，仅通过产品公开 API 读取内容，不包含产品服务端、采集组件或服务端凭据。源码采用 [MIT 许可证](LICENSE) 开源，尚未提交 Obsidian 社区目录或发布正式稳定版。0.2.0 所需的账号服务、WeChatRSS 读取接口和授权页已上线，正在 Mac 专用笔记库内进行真实账号验收；尚未完成正式发布验收。
 
 ## 下载与安装（桌面测试版）
 
@@ -14,7 +14,7 @@
 
 安装完成后，打开 Obsidian，在「设置 → 第三方插件」启用 WaytoMaster，再进入插件设置连接账号。网页只写入三个插件文件，保留笔记、账号配置和同步进度；升级前备份旧插件文件，普通写入失败会尝试恢复。浏览器授权由用户确认，安装不会自动启用第三方插件。
 
-Safari、手机或使用自定义配置目录时，可[下载 ZIP](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview) 手动安装：关闭 Obsidian，将 `wechatrss` 文件夹放到笔记库的 `.obsidian/plugins/`（或实际配置目录）。升级只替换 `main.js`、`manifest.json`、`styles.css`，保留 `data.json`。移动端插件暂不支持。
+Safari 或使用自定义配置目录时，可[下载 ZIP](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview) 手动安装：关闭 Obsidian，将 `wechatrss` 文件夹放到笔记库的 `.obsidian/plugins/`（或实际配置目录）。升级只替换 `main.js`、`manifest.json`、`styles.css`，保留 `data.json`。移动端插件暂不支持。
 
 当前需要桌面 Obsidian 1.11.4 或更新版本。Mac 已安装验证，Windows/Linux 实装与生产完整授权读取仍待验收；iOS/Android 暂不支持。此测试包不代表正式稳定版，也没有自动下载安装更新功能。
 
@@ -22,7 +22,7 @@ Safari、手机或使用自定义配置目录时，可[下载 ZIP](https://wecha
 
 要求桌面版 Obsidian 1.11.4 或更新版本。
 
-1. 将构建后的 `main.js`、`manifest.json`、`styles.css` 放入专用测试笔记库的 `.obsidian/plugins/wechatrss/`，在第三方插件设置中启用 **WaytoMaster**。
+1. 按上方说明安装，在 Obsidian 第三方插件设置中启用 **WaytoMaster**。首次体验建议使用单独的测试笔记库。
 2. 点击「连接 WeChatRSS」，在浏览器登录原来的 WeChatRSS 账号，确认账号与只读授权，再返回 Obsidian。无需填写服务地址、API Key 或 Secret，也无需登录微信。
 3. 选择公众号，点击「手动同步」或「开启自动同步」。默认保存在 `WeChatRSS` 文件夹，按公众号整理，可以更改保存位置。
 
@@ -57,4 +57,8 @@ npm run build:installer
 
 产物位于 `dist/`；`WaytoMaster-Obsidian-Install.html` 内嵌与当前构建相同的三个插件文件及校验值。ZIP 仅分发三个插件文件，测试数据、依赖目录与 `data.json` 不进入安装包。OAuth 协议处理复用 `oauth4webapi`。
 
-已验证授权取消与错 state、续期并发、撤销、账号隔离、断点恢复和编辑保护。Mac Obsidian 1.14.4 在专用笔记库内通过真实系统回跳、SecretStorage 恢复、重复同步、授权失效后的重连/清除和断开验证，云端响应采用隔离数据。隔离验证后曾恢复 0.1.1；配套上线后，Mac 专用笔记库已升级 0.2.0，73 篇原有笔记哈希不变，自动同步关闭。公网登录入口已验证，等待本人登录完成生产 OAuth 联调；Windows 实装及完整发布验收尚未完成。
+已验证授权取消与错 state、续期并发、撤销、账号隔离、断点恢复和编辑保护。Mac Obsidian 1.14.4 已验证真实系统回跳、SecretStorage 恢复、重复同步、授权失效后的重连与断开，云端响应使用隔离测试数据；这些结果不代表生产真实账号全流程已通过。Windows/Linux 实装、生产 OAuth 授权读取及完整发布验收仍待完成。
+
+## 许可证
+
+本仓库代码采用 [MIT 许可证](LICENSE)。第三方依赖遵循各自许可证。插件开源不授予 WaytoMaster 云端产品的付费权益；读取内容仍需账号授权和相应产品权限。
