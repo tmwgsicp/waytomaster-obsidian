@@ -4,6 +4,16 @@
 
 这是独立插件仓库，仅通过产品公开 API 读取内容，不包含产品服务端、采集组件或服务端凭据。尚未公开发布或提交社区目录，开源许可证将在正式发布前确定。0.2.0 所需的账号服务、WeChatRSS 读取接口和授权页已上线，正在 Mac 专用笔记库内进行真实账号验收；尚未完成正式发布验收。
 
+## 下载与安装（桌面测试版）
+
+无需访问 GitHub：[下载 WaytoMaster Obsidian 0.2.0 测试版](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview)。文件由官方产品服务跳转到 OSS 下载，当前通道为手动安装和升级。
+
+1. 关闭 Obsidian，将 ZIP 解压得到的 `wechatrss` 文件夹放入目标笔记库的 `.obsidian/plugins/`。若已自定义配置目录，请使用该笔记库实际目录。
+2. 打开 Obsidian，在「设置 → 第三方插件」启用 WaytoMaster，再进入插件设置连接账号。
+3. 升级时关闭 Obsidian，仅替换 `main.js`、`manifest.json`、`styles.css`，保留 `data.json` 和已有笔记；不要删除整个插件目录。
+
+当前需要桌面 Obsidian 1.11.4 或更新版本。Mac 已安装验证，Windows/Linux 实装与生产完整授权读取仍待验收；iOS/Android 暂不支持。此测试包不代表正式稳定版，也没有自动下载安装更新功能。
+
 ## 使用
 
 要求桌面版 Obsidian 1.11.4 或更新版本。
