@@ -2,13 +2,15 @@
 
 将 WaytoMaster 生态产品中有权阅读的内容保存到 Obsidian。当前 0.2.0 候选版支持 WeChatRSS；SocialRSS 和 InvestorRSS 尚未接入。
 
-这是独立插件仓库，仅通过产品公开 API 读取内容，不包含产品服务端、采集组件或服务端凭据。尚未公开发布或提交社区目录，开源许可证将在正式发布前确定。0.2.0 所需的账号服务、WeChatRSS 读取接口和授权页已上线，正在 Mac 专用笔记库内进行真实账号验收；尚未完成正式发布验收。
+本项目的独立仓库为 [tmwgsicp/waytomaster-obsidian](https://github.com/tmwgsicp/waytomaster-obsidian)，仅通过产品公开 API 读取内容，不包含产品服务端、采集组件或服务端凭据。尚未公开发布或提交社区目录，开源许可证将在正式发布前确定。0.2.0 所需的账号服务、WeChatRSS 读取接口和授权页已上线，正在 Mac 专用笔记库内进行真实账号验收；尚未完成正式发布验收。
 
 ## 下载与安装（桌面测试版）
 
 首次使用请先查看[功能与使用指南](https://wechatrss.waytomaster.com/obsidian)，也可以在 WeChatRSS「AI / 集成 → Obsidian · 笔记同步」找到同一份说明。
 
 推荐使用桌面 Chrome 或 Edge 打开[网页安装助手](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview/install)。笔记库就是存放 Obsidian 笔记的文件夹。已有笔记库可在 Obsidian 左下角的「管理笔记库」查看路径；新用户先在 Obsidian 创建，例如「文稿 / 我的资料库」。关闭 Obsidian，选择这个文件夹本身，允许浏览器修改文件，再点击安装。无需访问 GitHub、解压或查找隐藏目录。
+
+安装助手沿用 WeChatRSS 网站的配色、字体和外观设置，可在顶部返回 SaaS 的 Obsidian 集成页或使用指南。插件版本与测试状态在页脚说明；安装完成后的返回按钮不会删除笔记或撤销已有连接。
 
 安装完成后，打开 Obsidian，在「设置 → 第三方插件」启用 WaytoMaster，再进入插件设置连接账号。网页只写入三个插件文件，保留笔记、账号配置和同步进度；升级前备份旧插件文件，普通写入失败会尝试恢复。浏览器授权由用户确认，安装不会自动启用第三方插件。
 
