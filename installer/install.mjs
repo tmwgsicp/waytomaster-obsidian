@@ -23,6 +23,38 @@ async function optionalDirectory(folder, name) {
   try { return await folder.getDirectoryHandle(name); }
   catch (error) { if (error.name === 'NotFoundError') return null; throw error; }
 }
+// Search only a user-granted folder; never read note contents.
+export async function discoverVaults(root, {signal, maxDepth = 4, maxDirectories = 512, maxEntries = 10000} = {}) {
+  const vaults = [], queue = [{handle: root, path: root.name, depth: 0}];
+  const skipped = new Set(['node_modules', 'Library', 'Applications', 'Windows', 'Program Files']);
+  let directories = 0, entries = 0, limited = false, unreadable = 0;
+  const checkCancelled = () => { if (signal?.aborted) throw new DOMException('Search cancelled', 'AbortError'); };
+  while (queue.length) {
+    checkCancelled();
+    if (directories >= maxDirectories) { limited = true; break; }
+    const current = queue.shift(); directories++;
+    try {
+      const config = await optionalDirectory(current.handle, '.obsidian');
+      checkCancelled();
+      if (config) { vaults.push({handle: current.handle, path: current.path}); continue; }
+      for await (const [name, child] of current.handle.entries()) {
+        checkCancelled();
+        if (++entries > maxEntries) { limited = true; break; }
+        if (child.kind !== 'directory' || name.startsWith('.') || skipped.has(name) || name.endsWith('.app')) continue;
+        if (current.depth >= maxDepth || queue.length + directories >= maxDirectories) { limited = true; continue; }
+        queue.push({handle: child, path: current.path + '/' + name, depth: current.depth + 1});
+      }
+      if (entries > maxEntries) break;
+    } catch (error) {
+      if (error.name === 'AbortError') throw error;
+      if (!['NotAllowedError', 'NotFoundError', 'NotReadableError', 'SecurityError'].includes(error.name)) throw error;
+      unreadable++;
+    }
+  }
+  checkCancelled();
+  return {vaults, limited, unreadable};
+}
+
 export async function inspectVault(vault) {
   const config = await optionalDirectory(vault, '.obsidian');
   if (!config) throw Error('没有找到 Obsidian 笔记库。请选存放笔记的最外层文件夹；如果是新文件夹，先在 Obsidian 中创建或打开它，再返回重试。');

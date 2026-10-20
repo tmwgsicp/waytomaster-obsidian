@@ -1,4 +1,4 @@
-import {inspectVault, install, verifyBundle} from './install.mjs';
+import {discoverVaults, inspectVault, install, verifyBundle} from './install.mjs';
 const bundle = JSON.parse(document.getElementById('bundle').textContent);
 const $ = id => document.getElementById(id);
 $('version').textContent = bundle.version;
@@ -23,37 +23,62 @@ function step(name) {
     else $('step-' + value).removeAttribute('aria-current');
   }
 }
-let vault = null, busy = false;
+let vault = null, busy = false, selectedPath = '', ambiguousName = false;
 function error(message) { $('error').textContent = message; $('error').hidden = !message; }
 const supported = 'showDirectoryPicker' in window && window.isSecureContext;
 const canDrop = supported && 'DataTransferItem' in window && 'getAsFileSystemHandle' in DataTransferItem.prototype;
 $('drop-hint').hidden = !canDrop;
 if (!supported) { $('unsupported').hidden = false; $('choose').disabled = true; }
-const isMac = /Mac/i.test(navigator.userAgentData?.platform || navigator.platform);
-$('path-hint').textContent = isMac
-  ? 'Mac：点击下方按钮后，可按 ⌘ + Shift + G，输入上面查到的文件夹路径，直接前往。'
-  : 'Windows：点击下方按钮后，可在地址栏粘贴查到的文件夹路径，按回车前往。';
-async function selectVault(getHandle) {
+let search = null;
+async function showVault(chosen, label) {
+  const found = await inspectVault(chosen);
+  await verifyBundle(bundle);
+  vault = chosen; selectedPath = label;
+  $('selected').textContent = label + (found.existing ? ' · 已安装 ' + found.existing.version : ' · 尚未安装 WaytoMaster');
+  $('selected').hidden = false; $('close-reminder').hidden = false; $('status').textContent = '';
+  $('install').textContent = found.existing ? '安装 / 更新至 ' + bundle.version : '安装 WaytoMaster';
+  $('install').disabled = false; $('install').hidden = false; $('choose').textContent = '换一个位置'; $('choose').className = 'secondary'; step('install');
+}
+async function selectVault(getHandle, label = '', ambiguous = false) {
   if (busy) return;
   busy = true; $('choose').disabled = true;
-  step('select');
+  step('select'); ambiguousName = ambiguous;
   error(''); $('status').textContent = ''; $('status').className = ''; $('install').disabled = true; $('install').hidden = true; $('done').hidden = true; $('selected').hidden = true; $('close-reminder').hidden = true; vault = null;
+  $('candidates').replaceChildren(); $('results').hidden = true; $('search-note').textContent = ''; $('search-note').hidden = true;
+  $('choose').textContent = '选择文件夹并查找'; $('choose').className = '';
   try {
     const chosen = await getHandle();
-    if (!chosen || chosen.kind !== 'directory') throw Error('请选择整个笔记文件夹，不是笔记文件或 ZIP。');
-    const found = await inspectVault(chosen);
-    await verifyBundle(bundle);
-    vault = chosen;
-    $('selected').textContent = chosen.name + (found.existing ? ' · 已安装 ' + found.existing.version : ' · 尚未安装 WaytoMaster');
-    $('selected').hidden = false; $('close-reminder').hidden = false; $('status').textContent = '';
-    $('install').textContent = found.existing ? '安装 / 更新至 ' + bundle.version : '安装 WaytoMaster';
-    $('install').disabled = false; $('install').hidden = false; $('choose').textContent = '换一个文件夹'; $('choose').className = 'secondary'; step('install');
+    if (!chosen || chosen.kind !== 'directory') throw Error('请选择文件夹，不是笔记文件或 ZIP。');
+    if (chosen.name === '.obsidian') throw Error('选到了隐藏的配置文件夹，请选择它的上一级文件夹。');
+    search = new AbortController(); $('cancel-search').hidden = false;
+    $('status').textContent = '正在查找笔记库…';
+    const found = await discoverVaults(chosen, {signal: search.signal});
+    if (found.limited || found.unreadable) {
+      $('search-note').textContent = '部分文件夹未能检查。若没有看到你的笔记库，请选择更接近笔记的位置重试。';
+      $('search-note').hidden = false;
+    }
+    if (!found.vaults.length) {
+      $('status').textContent = '';
+      error('这里没有找到笔记库。请换一个位置；首次使用 Obsidian 时，需要先创建笔记库。');
+    } else if (found.vaults.length === 1) {
+      await showVault(found.vaults[0].handle, label || found.vaults[0].path);
+    } else {
+      $('status').textContent = '找到 ' + found.vaults.length + ' 个笔记库，请选择要安装的一个。';
+      $('results').hidden = false;
+      for (const item of found.vaults) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'secondary vault-choice'; button.textContent = item.path;
+        button.onclick = () => selectVault(() => item.handle, item.path, found.vaults.some(other => other !== item && other.handle.name === item.handle.name));
+        $('candidates').append(button);
+      }
+    }
   } catch (cause) {
-    if (cause.name === 'AbortError') $('status').textContent = '已取消选择，未修改任何文件。可以重新选择。';
-    else error(cause.name === 'NotAllowedError' ? '未获得文件夹访问权限。请重新选择，并在浏览器提示中允许访问文件夹。' : cause.message || '无法访问所选文件夹，请重新选择。');
-  } finally { busy = false; $('choose').disabled = !supported; }
+    if (cause.name === 'AbortError') $('status').textContent = '已取消，未修改任何文件。可以重新选择。';
+    else { $('status').textContent = ''; error(cause.name === 'NotAllowedError' || cause.name === 'SecurityError' ? '未获得文件夹访问权限，请选择文稿或其他存放笔记的文件夹，并允许访问。' : cause.message || '无法访问所选文件夹，请重新选择。'); }
+  } finally { search = null; $('cancel-search').hidden = true; busy = false; $('choose').disabled = !supported; }
 }
-$('choose').onclick = () => selectVault(() => window.showDirectoryPicker({id: 'waytomaster-vault', mode: 'read'}));
+$('cancel-search').onclick = () => search?.abort();
+$('choose').onclick = () => selectVault(() => window.showDirectoryPicker({id: 'waytomaster-vault', mode: 'read', startIn: 'documents'}));
 // Obtain the handle during the drop event; the browser clears drag data after it returns.
 $('drop-zone').ondragover = event => { event.preventDefault(); if (canDrop && !busy) $('drop-zone').classList.add('drag-over'); };
 $('drop-zone').ondragleave = () => $('drop-zone').classList.remove('drag-over');
@@ -75,6 +100,8 @@ $('install').onclick = async () => {
     $('selected').textContent = vault.name + ' · 已安装 ' + result.version;
     $('install').textContent = '已安装';
     $('status').className = 'success'; $('setup').hidden = true; $('done').hidden = false; step('connect'); $('done').focus();
+    $('open').hidden = ambiguousName;
+    $('open-hint').textContent = ambiguousName ? '存在同名笔记库，请在 Obsidian 中打开刚才选择的：' + selectedPath : '没有跳转？手动打开 Obsidian 即可。';
     $('open').href = 'obsidian://open?' + new URLSearchParams({vault: vault.name});
   } catch (cause) { $('status').textContent = ''; error(cause.message || '安装未完成，请重新选择笔记库后重试。'); $('install').disabled = false; }
   finally { busy = false; $('choose').disabled = false; }

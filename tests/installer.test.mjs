@@ -1,13 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, mkdir, readFile, writeFile, stat, rm} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, writeFile, stat, rm, readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {install, digest, inspectVault, verifyBundle} from '../installer/install.mjs';
+import {discoverVaults, install, digest, inspectVault, verifyBundle} from '../installer/install.mjs';
 
 function missing(error) { if (error.code === 'ENOENT') error.name = 'NotFoundError'; return error; }
 class Directory {
-  constructor(path, control = {}) { this.path = path; this.name = path.split(/[\\/]/).at(-1); this.control = control; }
+  constructor(path, control = {}) { this.kind = 'directory'; this.path = path; this.name = path.split(/[\\/]/).at(-1); this.control = control; }
+  async *entries() {
+    for (const entry of await readdir(this.path, {withFileTypes: true})) {
+      yield [entry.name, entry.isDirectory() ? new Directory(join(this.path, entry.name), this.control) : {kind: 'file'}];
+    }
+  }
   async getDirectoryHandle(name, options = {}) {
     const path = join(this.path, name);
     if (options.create) await mkdir(path, {recursive: true});
@@ -92,4 +97,63 @@ test('extra payload file and another plugin identity are rejected', async t => {
   delete f.bundle.assets['data.json'];
   await writeFile(join(f.target, 'manifest.json'), '{"id":"other-plugin"}');
   await assert.rejects(install(f.vault, f.bundle), /其他插件/);
+});
+
+async function searchFixture(t, paths) {
+  const path = await mkdtemp(join(tmpdir(), 'waytomaster-discovery-'));
+  t.after(() => rm(path, {recursive: true, force: true}));
+  for (const name of paths) await mkdir(join(path, name, '.obsidian'), {recursive: true});
+  await writeFile(join(path, 'private-note.md'), 'Do not read or change');
+  return new Directory(path);
+}
+
+test('locates nested vaults without reading notes, creating files or changing folders', async t => {
+  const root = await searchFixture(t, ['工作/笔记', '个人/笔记', '.hidden/not-a-candidate', 'node_modules/skip']);
+  root.getFileHandle = async () => { throw Error('Discovery must not read files'); };
+  const found = await discoverVaults(root);
+  assert.deepEqual(found.vaults.map(v => v.path.slice(root.name.length+1)).sort(), ['个人/笔记', '工作/笔记']);
+  assert.equal(found.limited, false); assert.equal(found.unreadable, 0);
+  assert.equal(root.control.writes, undefined);
+  assert.equal(await readFile(join(root.path,'private-note.md'),'utf8'), 'Do not read or change');
+  for (const item of found.vaults) await assert.rejects(stat(join(item.handle.path,'.obsidian','plugins')), {code:'ENOENT'});
+});
+
+test('direct vault selection and a single child both resolve correctly', async t => {
+  const f = await fixture(t);
+  assert.equal((await discoverVaults(f.vault)).vaults[0].handle, f.vault);
+  const parent = await searchFixture(t, ['我的笔记']);
+  const found = await discoverVaults(parent);
+  assert.equal(found.vaults.length,1);
+  assert.equal(found.vaults[0].handle.name,'我的笔记');
+  await install(found.vaults[0].handle,f.bundle);
+  assert.equal((await inspectVault(found.vaults[0].handle)).existing.version,'0.2.0');
+});
+
+test('empty and bounded searches distinguish no results from incomplete results', async t => {
+  const empty = await searchFixture(t, []);
+  assert.deepEqual(await discoverVaults(empty), {vaults:[],limited:false,unreadable:0});
+  const tree = await searchFixture(t, ['a/b/c/deep','other/vault']);
+  for (const options of [{maxDepth:1},{maxDirectories:1},{maxEntries:1}]) {
+    assert.equal((await discoverVaults(tree,options)).limited,true);
+  }
+});
+
+test('cancelled search never proceeds to installation', async t => {
+  const root = await searchFixture(t,['vault']);
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(discoverVaults(root,{signal:controller.signal}), {name:'AbortError'});
+  assert.equal(root.control.writes,undefined);
+});
+
+test('unreadable children do not hide accessible sibling vaults', async t => {
+  const root = await searchFixture(t,['available']);
+  const available = await root.getDirectoryHandle('available');
+  root.entries = async function* () {
+    yield ['unreadable',{kind:'directory',getDirectoryHandle:async()=>{throw new DOMException('Denied','NotAllowedError');}}];
+    yield ['available',available];
+  };
+  const result = await discoverVaults(root);
+  assert.equal(result.unreadable,1);
+  assert.equal(result.vaults[0].handle.name,'available');
 });
