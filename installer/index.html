@@ -23,8 +23,9 @@ main{max-width:896px;margin:0 auto;padding:32px 24px 56px}.back{display:inline-f
 <p id="unsupported" class="error" role="status" hidden>网页安装需要电脑上的 Chrome / Edge。你也可以下载 ZIP 手动安装。</p>
 <section class="card">
 <div id="setup"><h2>选择存放笔记的文件夹</h2>
-<div id="locate"><p>不记得位置？先打开 Obsidian 的笔记库列表，查看名称和位置。</p>
-<a id="locate-vault" class="button secondary" href="obsidian://choose-vault" target="_top">打开 Obsidian 笔记库列表</a>
+<div id="locate"><p>已有笔记？在 Obsidian 中右键一篇笔记，选择在访达 / 系统资源管理器中显示，再找到与仓库同名的文件夹。</p>
+<a id="locate-vault" class="button secondary" href="obsidian://choose-vault" target="_top">打开 Obsidian 仓库管理</a>
+<details id="vault-manager-help"><summary>只看到「新建 / 打开本地 / 同步远程」？</summary><p>这是仓库管理入口，不代表已经找到笔记文件夹。已有笔记时，回到原来的笔记窗口，按上面的方式定位。首次使用、还没有任何笔记时，才需要新建仓库，并记住所选位置。</p></details>
 <p id="path-hint" class="small">找到文件夹后，选择它即可。不需要选择里面的笔记或隐藏文件夹。</p></div>
 <div id="drop-zone" class="drop-zone"><p id="drop-hint" hidden>也可以把笔记文件夹拖到这里</p><button id="choose">选择笔记文件夹</button></div>
 <div id="selected" class="selected" hidden></div>
