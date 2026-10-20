@@ -40,7 +40,7 @@ export class OAuthSession {
     const generation = ++this.generation;
     this.pending = undefined;
     const response = await this.fetcher(ISSUER + '/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_name: 'WaytoMaster for Obsidian · WeChatRSS', redirect_uris: [CALLBACK],
+      body: JSON.stringify({ client_name: 'Obsidian 笔记同步 · WeChatRSS', redirect_uris: [CALLBACK],
         grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], scope: SCOPE, token_endpoint_auth_method: 'none' }), redirect: 'manual' });
     if (generation !== this.generation) throw new SyncError('cancelled', '已取消连接');
     if (response.status !== 201) throw new SyncError('server', '账号服务暂时无法发起授权，请稍后重试');

@@ -1,7 +1,7 @@
 {
   "id": "wechatrss",
   "name": "WaytoMaster",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minAppVersion": "1.11.4",
   "description": "Save entitled content from WaytoMaster products to your vault. Currently supports WeChatRSS.",
   "author": "WaytoMaster",

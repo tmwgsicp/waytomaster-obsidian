@@ -1,4 +1,4 @@
-# WaytoMaster for Obsidian
+# Obsidian 笔记同步
 
 把 WeChatRSS 公众号文章存进 Obsidian，与自己的笔记连在一起。
 
