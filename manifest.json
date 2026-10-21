@@ -1,9 +1,9 @@
 {
   "id": "wechatrss",
   "name": "WaytoMaster",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "minAppVersion": "1.11.4",
-  "description": "将 WeChatRSS 公众号文章保存到笔记库，按公众号整理，支持手动和每小时自动同步。",
+  "description": "WeChatRSS 的配套笔记同步插件，将有权阅读的公众号文章保存到 Obsidian。插件本身不提供文章抓取能力。",
   "author": "WaytoMaster",
   "authorUrl": "https://account.waytomaster.com",
   "isDesktopOnly": true
