@@ -1,9 +1,9 @@
 {
   "id": "wechatrss",
   "name": "WaytoMaster",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "minAppVersion": "1.11.4",
-  "description": "Save entitled content from WaytoMaster products to your vault. Currently supports WeChatRSS.",
+  "description": "将 WeChatRSS 公众号文章保存到笔记库，按公众号整理，支持手动和每小时自动同步。",
   "author": "WaytoMaster",
   "authorUrl": "https://account.waytomaster.com",
   "isDesktopOnly": true

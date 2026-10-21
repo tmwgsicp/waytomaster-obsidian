@@ -1,12 +1,14 @@
 # Obsidian 笔记同步
 
+[中文](#开始使用) · [English](#english)
+
 把 WeChatRSS 公众号文章存进 Obsidian，与自己的笔记连在一起。
 
 - 按公众号整理，保存为 Markdown。
 - 手动或每小时自动同步，重复同步不重复创建。
 - 保留你修改过的笔记，断开连接也不会删除内容。
 
-[安装插件](https://wechatrss.waytomaster.com/dashboard/integrations?tab=obsidian&install=1) · [下载 ZIP](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview) · [使用帮助](https://wechatrss.waytomaster.com/dashboard/integrations?tab=obsidian)
+[安装插件](https://wechatrss.waytomaster.com/dashboard/integrations?tab=notes&install=1) · [下载 ZIP](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview) · [使用帮助](https://wechatrss.waytomaster.com/dashboard/integrations?tab=notes)
 
 ## 开始使用
 
@@ -36,7 +38,7 @@ Windows/macOS 桌面基础流程已验证；Linux 尚未完成验证，手机端
 
 沿用原账号的套餐、余额、订阅和阅读权益。没有文章时，先确认同一账号能在 WeChatRSS 阅读正文；连接失效可重新连接。插件不会自动获取全部历史文章。
 
-授权时先确认 WeChatRSS 账号，再进入账号中心确认只读权限。没有统一账号时会自动开通，不必重复注册。账号中心未登录时需要登录：新开通的账号可使用原平台密码；已有统一账号则使用它原有的密码。
+使用原 WeChatRSS 账号登录，沿用现有登录状态完成账号关联并确认只读权限。没有 WaytoMaster 账号时会自动开通，无需重复注册；如果浏览器登录的是其他账号，请按页面提示切换。
 
 可在插件设置中断开连接，或在 [WaytoMaster 账号中心](https://account.waytomaster.com/me/apps) 管理授权。笔记和同步进度保存在本地，备份时保留插件数据。
 
@@ -49,7 +51,7 @@ Windows/macOS 桌面基础流程已验证；Linux 尚未完成验证，手机端
 使用浏览器只读授权。访问令牌仅在内存中，续期授权保存在 Obsidian 原生 SecretStorage，不写入普通插件配置或笔记。
 
 <details>
-<summary>参与开发</summary>
+<summary>参与开发 / Development</summary>
 
 需要 Node.js 22：
 
@@ -67,3 +69,27 @@ npm run build:installer
 ## 许可证
 
 [MIT](LICENSE)。第三方依赖遵循各自许可证。插件开源不授予云端产品的付费权益。
+
+## English
+
+Save WeChatRSS articles to your Obsidian vault as Markdown, organized by publisher. Sync manually or every hour while Obsidian is open. Repeated syncs avoid duplicate notes, and your local edits are preserved.
+
+[Install the plugin](https://wechatrss.waytomaster.com/dashboard/integrations?tab=notes&install=1) · [Download ZIP](https://wechatrss.waytomaster.com/api/downloads/plugins/obsidian-preview)
+
+### Get started
+
+1. Open the installer in desktop Chrome or Edge. Choose a folder containing your vault, select the vault it finds, then quit Obsidian and install. A vault is the folder where your notes are stored; new users should create one in Obsidian first.
+2. Reopen Obsidian and enable **WaytoMaster** under **Settings → Community plugins**. Open the plugin settings, click **连接 WeChatRSS** (Connect WeChatRSS), and sign in with your existing WeChatRSS account.
+3. Choose publishers and click **手动同步** (Sync now). Notes are saved under **WeChatRSS → publisher name**. You can enable hourly sync separately; it stays off after restarting Obsidian.
+
+Requires desktop Obsidian 1.11.4 or later, an active paid WeChatRSS plan, and access to the articles you sync. No API keys or server addresses are needed. The plugin currently supports WeChatRSS; its interface is in Chinese.
+
+Windows and macOS have been tested. Linux has not been verified; mobile is not supported. The plugin is not yet listed in Obsidian's community directory. Safari and custom configuration folders can use the ZIP: quit Obsidian, put the `wechatrss` folder in the vault's `.obsidian/plugins/` directory, then reopen and enable it. When updating, preserve `data.json` and your notes. Obsidian Sync is not required.
+
+Images require an internet connection. The plugin does not automatically collect all historical articles, merge edits across devices, or install updates automatically. Disconnecting keeps existing notes and sync progress.
+
+### Privacy and license
+
+The plugin does not upload your vault and has no client telemetry. It connects to `account.waytomaster.com` for authorization and `wechatrss.waytomaster.com` to read content; remote images also contact their hosting services. Authorization is read-only, and renewal credentials use Obsidian's native SecretStorage. Manage access in the plugin or the [WaytoMaster account center](https://account.waytomaster.com/me/apps).
+
+The plugin is licensed under [MIT](LICENSE). Open-source availability does not include paid cloud service access.
